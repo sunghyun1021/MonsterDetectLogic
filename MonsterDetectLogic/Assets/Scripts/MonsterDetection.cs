@@ -7,6 +7,7 @@ public class MonsterDetection : MonoBehaviour
 {
     [SerializeField] private float _DetectAngle;
     [SerializeField] private float _offsetYPosition;
+    [SerializeField] private float _moveSpeed;
     
     private SphereCollider _collider;
     private Transform _transformInTrigger;
@@ -52,10 +53,12 @@ public class MonsterDetection : MonoBehaviour
     {
         if (_transformInTrigger == null)
         {
-            Debug.Log("나가심");
             return;
         }
 
+        Debug.Log($"IsPlayerInDetectRange : {IsPlayerInDetectRange(_transformInTrigger)}");
+        Debug.Log($"IsRaycastReached : {IsRaycastReached(_transformInTrigger)}");
+        
         if (IsPlayerInDetectRange(_transformInTrigger) && IsRaycastReached(_transformInTrigger))
         {
             MoveMonster();
@@ -66,9 +69,9 @@ public class MonsterDetection : MonoBehaviour
     {
         Vector3 dir = _transformInTrigger.position - _monsterPostion.position;
             
-        _monsterPostion.Translate(dir.normalized * 5f * Time.deltaTime);
+        _monsterPostion.Translate(dir.normalized * _moveSpeed * Time.deltaTime, Space.World);
         
-        transform.LookAt(_transformInTrigger);
+        _monsterPostion.LookAt(_transformInTrigger);
     }
     
     
@@ -80,9 +83,7 @@ public class MonsterDetection : MonoBehaviour
 
         float threshold = Mathf.Cos(_DetectAngle * 0.5f * Mathf.Deg2Rad); // 기준 벡터내적값
         
-        Debug.Log($"targetDot : {targetDot}");
-        Debug.Log($"threshold : {threshold}");
-        Debug.Log($"IsPlayerInDetectRange : {targetDot >= threshold}");
+        
         return (targetDot >= threshold);
     }
 
@@ -102,15 +103,15 @@ public class MonsterDetection : MonoBehaviour
 
         _rayDirection = (_targetRayPoint - _monsterRayPoint).normalized;
         
-        Ray ray = new Ray(transform.position, _rayDirection);
+        Ray ray = new Ray(_monsterRayPoint, _rayDirection);
         RaycastHit hit; 
         
         if(Physics.Raycast(ray, out hit, _detectRange))
         {
-            //TODO: 플레이어 인식하도록 수정해야 함
+            if (!hit.transform.CompareTag("Player")) return false;
+            
             return true;
         }
-
         return false;
     }
     
@@ -135,7 +136,7 @@ public class MonsterDetection : MonoBehaviour
 
         
         // 레이캐스트
-        if(!IsRaycastReached(_transformInTrigger)) return;
+        //if(!IsRaycastReached(_transformInTrigger)) return;
         
         Debug.Log("기즈모 그림?");
         Gizmos.color = Color.blue;
