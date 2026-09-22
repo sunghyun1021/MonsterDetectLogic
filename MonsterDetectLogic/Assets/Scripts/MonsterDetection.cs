@@ -14,18 +14,25 @@ public class MonsterDetection : MonoBehaviour
     private Vector3 _monsterRayPoint;
     private Vector3 _targetRayPoint;
     private Vector3 _rayDirection;
-    private float _detectRange => _collider.radius;
+    private float _detectRange;
     private Transform _monsterPostion;
+    private bool _remainPosition;
+    private Vector3 _lastPostion;
     
 
     private void Awake() => CacheComponents();
-    
+
+    private void Start()
+    {
+        _detectRange = _collider.radius;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
             _transformInTrigger = other.transform;
-            Debug.Log($"OnTriggerEnter{other.name}");
+            _remainPosition = false;
         }
     }
 
@@ -33,6 +40,8 @@ public class MonsterDetection : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            _lastPostion = other.transform.position;
+            _remainPosition = true;
             _transformInTrigger = null;
         }
     }
@@ -51,20 +60,33 @@ public class MonsterDetection : MonoBehaviour
 
     private void DetectingPlayer()
     {
-        if (_transformInTrigger == null)
+        if (_transformInTrigger == null && !_remainPosition) return; // 처음 시작하여 플레이어 정보가 없을때
+
+        if (_remainPosition) // 플레이어 감지가 끊기고 마지막위치로 이동할때
         {
+            MoveRemainPosition();
+
+            if (_monsterPostion.position == _lastPostion)
+            {
+                _remainPosition = false;
+            }
             return;
         }
-
-        Debug.Log($"IsPlayerInDetectRange : {IsPlayerInDetectRange(_transformInTrigger)}");
-        Debug.Log($"IsRaycastReached : {IsRaycastReached(_transformInTrigger)}");
         
-        if (IsPlayerInDetectRange(_transformInTrigger) && IsRaycastReached(_transformInTrigger))
+        
+        if(IsPlayerInDetectRange(_transformInTrigger) && IsRaycastReached(_transformInTrigger))
         {
             MoveMonster();
         }
+        else
+        {
+            // 패트롤
+        }
     }
 
+    /// <summary>
+    /// 플레이어 추적함수
+    /// </summary>
     private void MoveMonster()
     {
         Vector3 dir = _transformInTrigger.position - _monsterPostion.position;
@@ -73,7 +95,16 @@ public class MonsterDetection : MonoBehaviour
         
         _monsterPostion.LookAt(_transformInTrigger);
     }
-    
+
+    /// <summary>
+    /// 플레이어가 부채꼴 영역 밖으로 벗어나
+    /// 플레이어 마지막 위치로 이동하는 함수
+    /// </summary>
+    private void MoveRemainPosition()
+    {
+        Vector3 dir = (_lastPostion -  _monsterPostion.position).normalized;
+        _monsterPostion.position += dir * _moveSpeed * Time.deltaTime;
+    }
     
     private bool IsPlayerInDetectRange(Transform TriggerTransform)
     {
@@ -121,31 +152,21 @@ public class MonsterDetection : MonoBehaviour
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position,6f);
+        Gizmos.DrawWireSphere(transform.position,_detectRange);
         
         // 부채꼴
         if(_transformInTrigger == null) return;
         if (!IsPlayerInDetectRange(_transformInTrigger)) return;
         
-        Vector3 leftBoundary = DirFromAngle(-_DetectAngle * 0.5f);
-        Vector3 rightBoundary = DirFromAngle(_DetectAngle * 0.5f);
-
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + leftBoundary * _detectRange);
-        Gizmos.DrawLine(transform.position, transform.position + rightBoundary * _detectRange);
-
+        Vector3 leftDir = Quaternion.Euler(0f,-_DetectAngle / 2 , 0f) * _monsterPostion.forward;
+        Vector3 rightDir = Quaternion.Euler(0f,_DetectAngle / 2 , 0f) * _monsterPostion.forward;
+        
+        Gizmos.DrawRay(transform.position, leftDir * _detectRange);
+        Gizmos.DrawRay(transform.position, rightDir * _detectRange);
+        
         
         // 레이캐스트
-        //if(!IsRaycastReached(_transformInTrigger)) return;
-        
-        Debug.Log("기즈모 그림?");
         Gizmos.color = Color.blue;
-        Gizmos.DrawRay(_monsterRayPoint, _rayDirection * 6f);
-    }
-    
-    private Vector3 DirFromAngle(float angleOffsetDegrees)
-    {
-        float angle = transform.eulerAngles.y + angleOffsetDegrees;
-        return new Vector3(Mathf.Sin(angle * Mathf.Deg2Rad), 0f, Mathf.Cos(angle * Mathf.Deg2Rad));
+        Gizmos.DrawRay(_monsterRayPoint, _rayDirection * _detectRange);
     }
 }
